@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
+	"github.com/tmc/grpc-websocket-proxy/wsproxy"
 	transport "gitlab.crja72.ru/gospec/go5/rooms/internal/transport/grpc"
 	"gitlab.crja72.ru/gospec/go5/rooms/internal/transport/grpc/proto"
 	"google.golang.org/grpc"
@@ -43,7 +44,7 @@ func main() {
 
 	gwServer := &http.Server{
 		Addr:    ":" + strconv.Itoa(RESTServerPort),
-		Handler: gwMux,
+		Handler: wsproxy.WebsocketProxy(gwMux),
 	}
 
 	graceCh := make(chan os.Signal, 1)
