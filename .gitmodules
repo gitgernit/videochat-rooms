@@ -1,0 +1,3 @@
+[submodule "contracts"]
+	path = contracts
+	url = https://gitlab.crja72.ru/gospec/go5/contracts
