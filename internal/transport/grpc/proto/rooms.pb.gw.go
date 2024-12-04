@@ -10,7 +10,6 @@ package proto
 
 import (
 	"context"
-	"errors"
 	"io"
 	"net/http"
 
@@ -25,15 +24,12 @@ import (
 )
 
 // Suppress "imported and not used" errors
-var (
-	_ codes.Code
-	_ io.Reader
-	_ status.Status
-	_ = errors.New
-	_ = runtime.String
-	_ = utilities.NewDoubleArray
-	_ = metadata.Join
-)
+var _ codes.Code
+var _ io.Reader
+var _ status.Status
+var _ = runtime.String
+var _ = utilities.NewDoubleArray
+var _ = metadata.Join
 
 func request_RoomsService_PingPong_0(ctx context.Context, marshaler runtime.Marshaler, client RoomsServiceClient, req *http.Request, pathParams map[string]string) (RoomsService_PingPongClient, runtime.ServerMetadata, chan error, error) {
 	var metadata runtime.ServerMetadata
@@ -48,7 +44,7 @@ func request_RoomsService_PingPong_0(ctx context.Context, marshaler runtime.Mars
 	handleSend := func() error {
 		var protoReq Ping
 		err := dec.Decode(&protoReq)
-		if errors.Is(err, io.EOF) {
+		if err == io.EOF {
 			return err
 		}
 		if err != nil {
@@ -88,7 +84,8 @@ func request_RoomsService_PingPong_0(ctx context.Context, marshaler runtime.Mars
 // Note that using this registration option will cause many gRPC library features to stop working. Consider using RegisterRoomsServiceHandlerFromEndpoint instead.
 // GRPC interceptors will not work for this type of registration. To use interceptors, you must use the "runtime.WithMiddlewares" option in the "runtime.NewServeMux" call.
 func RegisterRoomsServiceHandlerServer(ctx context.Context, mux *runtime.ServeMux, server RoomsServiceServer) error {
-	mux.Handle(http.MethodPost, pattern_RoomsService_PingPong_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+
+	mux.Handle("GET", pattern_RoomsService_PingPong_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		err := status.Error(codes.Unimplemented, "streaming calls are not yet supported in the in-process transport")
 		_, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
@@ -119,6 +116,7 @@ func RegisterRoomsServiceHandlerFromEndpoint(ctx context.Context, mux *runtime.S
 			}
 		}()
 	}()
+
 	return RegisterRoomsServiceHandler(ctx, mux, conn)
 }
 
@@ -134,11 +132,14 @@ func RegisterRoomsServiceHandler(ctx context.Context, mux *runtime.ServeMux, con
 // doesn't go through the normal gRPC flow (creating a gRPC client etc.) then it will be up to the passed in
 // "RoomsServiceClient" to call the correct interceptors. This client ignores the HTTP middlewares.
 func RegisterRoomsServiceHandlerClient(ctx context.Context, mux *runtime.ServeMux, client RoomsServiceClient) error {
-	mux.Handle(http.MethodPost, pattern_RoomsService_PingPong_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+
+	mux.Handle("GET", pattern_RoomsService_PingPong_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/proto.RoomsService/PingPong", runtime.WithHTTPPathPattern("/ping-pong"))
+		var err error
+		var annotatedContext context.Context
+		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/proto.RoomsService/PingPong", runtime.WithHTTPPathPattern("/ping-pong"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -152,13 +153,16 @@ func RegisterRoomsServiceHandlerClient(ctx context.Context, mux *runtime.ServeMu
 		}
 		go func() {
 			for err := range reqErrChan {
-				if err != nil && !errors.Is(err, io.EOF) {
+				if err != nil && err != io.EOF {
 					runtime.HTTPStreamError(annotatedContext, mux, outboundMarshaler, w, req, err)
 				}
 			}
 		}()
+
 		forward_RoomsService_PingPong_0(annotatedContext, mux, outboundMarshaler, w, req, func() (proto.Message, error) { return resp.Recv() }, mux.GetForwardResponseOptions()...)
+
 	})
+
 	return nil
 }
 
