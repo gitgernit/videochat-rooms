@@ -6,7 +6,6 @@ import (
 	"github.com/tmc/grpc-websocket-proxy/wsproxy"
 	"gitlab.crja72.ru/gospec/go5/contracts/proto/rooms/go/proto"
 	transport "gitlab.crja72.ru/gospec/go5/rooms/internal/transport/grpc"
-	"gitlab.crja72.ru/gospec/go5/rooms/internal/transport/grpc/proto"
 	"gitlab.crja72.ru/gospec/go5/rooms/pkg/logger"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
