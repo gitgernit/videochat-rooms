@@ -1,7 +1,7 @@
 package grpc
 
 import (
-	"fmt"
+	"gitlab.crja72.ru/gospec/go5/rooms/internal/domain/pingpong"
 	"gitlab.crja72.ru/gospec/go5/rooms/internal/transport/grpc/proto"
 	"io"
 )
@@ -15,9 +15,10 @@ func newRoomsService() *roomsService {
 }
 
 func (s *roomsService) PingPong(stream proto.RoomsService_PingPongServer) error {
+	interactor := pingpong.PingInteractor{}
+
 	for {
 		msg, err := stream.Recv()
-		fmt.Printf("Received message: %+v\n", msg)
 
 		if err == io.EOF {
 			return nil
@@ -28,9 +29,14 @@ func (s *roomsService) PingPong(stream proto.RoomsService_PingPongServer) error 
 		}
 
 		counter := msg.GetCounter()
-		counter += 1
+		ping := pingpong.Ping{Counter: counter}
 
-		response := proto.Pong{Counter: counter}
+		pong, err := interactor.Ping(ping)
+		if err != nil {
+			return err
+		}
+
+		response := proto.Pong{Counter: pong.Counter}
 
 		if err := stream.Send(&response); err != nil {
 			return err
