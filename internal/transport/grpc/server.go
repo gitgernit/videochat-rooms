@@ -3,7 +3,7 @@ package grpc
 import (
 	"context"
 	"fmt"
-	"gitlab.crja72.ru/gospec/go5/rooms/internal/transport/grpc/proto"
+	"gitlab.crja72.ru/gospec/go5/contracts/proto/rooms/go/proto"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 	"net"
