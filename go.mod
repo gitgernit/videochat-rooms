@@ -6,6 +6,7 @@ require (
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.24.0
 	github.com/tmc/grpc-websocket-proxy v0.0.0-20220101234140-673ab2c3ae75
 	gitlab.crja72.ru/gospec/go5/contracts/proto/rooms/go v0.0.0-20241205214847-709b71565fcb
+	go.uber.org/zap v1.27.0
 	golang.org/x/sync v0.9.0
 	google.golang.org/grpc v1.68.1
 )
@@ -13,6 +14,7 @@ require (
 require (
 	github.com/gorilla/websocket v1.4.2 // indirect
 	github.com/sirupsen/logrus v1.8.1 // indirect
+	go.uber.org/multierr v1.10.0 // indirect
 	golang.org/x/net v0.29.0 // indirect
 	golang.org/x/sys v0.25.0 // indirect
 	golang.org/x/text v0.20.0 // indirect
