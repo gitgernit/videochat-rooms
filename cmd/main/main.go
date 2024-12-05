@@ -6,6 +6,8 @@ import (
 	"github.com/tmc/grpc-websocket-proxy/wsproxy"
 	transport "gitlab.crja72.ru/gospec/go5/rooms/internal/transport/grpc"
 	"gitlab.crja72.ru/gospec/go5/rooms/internal/transport/grpc/proto"
+	"gitlab.crja72.ru/gospec/go5/rooms/pkg/logger"
+	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"net/http"
@@ -18,14 +20,18 @@ import (
 var (
 	GRPCServerPort = 50051
 	RESTServerPort = 8081
+	serviceName    = "rooms"
 )
 
 func main() {
 	ctx := context.Background()
+	mainLogger := logger.New(serviceName)
+	ctx = context.WithValue(ctx, logger.LoggerKey, mainLogger)
+
 	grpcServer, err := transport.NewServer(ctx, GRPCServerPort)
 
 	if err != nil {
-		panic(err)
+		mainLogger.Error(ctx, err.Error())
 	}
 
 	conn, err := grpc.NewClient(
@@ -34,12 +40,12 @@ func main() {
 	)
 
 	if err != nil {
-		panic(err)
+		mainLogger.Error(ctx, err.Error())
 	}
 
 	gwMux := runtime.NewServeMux()
 	if err := proto.RegisterRoomsServiceHandler(ctx, gwMux, conn); err != nil {
-		panic(err)
+		mainLogger.Error(ctx, err.Error())
 	}
 
 	gwServer := &http.Server{
@@ -52,23 +58,31 @@ func main() {
 
 	go func() {
 		if err := grpcServer.Start(ctx); err != nil {
-			panic(err)
+			mainLogger.Error(ctx, err.Error())
 		}
 	}()
+
+	mainLogger.Info(ctx, "gRPC server started", zap.Int("port", GRPCServerPort))
 
 	go func() {
 		if err := gwServer.ListenAndServe(); err != nil {
-			panic(err)
+			mainLogger.Error(ctx, err.Error())
 		}
 	}()
 
+	mainLogger.Info(ctx, "Gateway server started", zap.Int("port", RESTServerPort))
+
 	<-graceCh
 
+	mainLogger.Info(ctx, "Shutting down")
+
 	if err := gwServer.Shutdown(ctx); err != nil {
-		panic(err)
+		mainLogger.Error(ctx, err.Error())
 	}
 
 	if err := grpcServer.Stop(ctx); err != nil {
-		panic(err)
+		mainLogger.Error(ctx, err.Error())
 	}
+
+	mainLogger.Info(ctx, "Successfully shut down")
 }
