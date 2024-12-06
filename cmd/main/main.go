@@ -5,6 +5,7 @@ import (
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"github.com/tmc/grpc-websocket-proxy/wsproxy"
 	"gitlab.crja72.ru/gospec/go5/contracts/proto/rooms/go/proto"
+	"gitlab.crja72.ru/gospec/go5/rooms/internal/config"
 	transport "gitlab.crja72.ru/gospec/go5/rooms/internal/transport/grpc"
 	"gitlab.crja72.ru/gospec/go5/rooms/pkg/logger"
 	"go.uber.org/zap"
@@ -18,9 +19,7 @@ import (
 )
 
 var (
-	GRPCServerPort = 50051
-	RESTServerPort = 8081
-	serviceName    = "rooms"
+	serviceName = "rooms"
 )
 
 func main() {
@@ -28,28 +27,37 @@ func main() {
 	mainLogger := logger.New(serviceName)
 	ctx = context.WithValue(ctx, logger.LoggerKey, mainLogger)
 
-	grpcServer, err := transport.NewServer(ctx, GRPCServerPort)
+	cfg, err := config.New()
+	if err != nil {
+		mainLogger.Error(ctx, err.Error())
+		return
+	}
+
+	grpcServer, err := transport.NewServer(ctx, cfg.GRPCServerPort)
 
 	if err != nil {
 		mainLogger.Error(ctx, err.Error())
+		return
 	}
 
 	conn, err := grpc.NewClient(
-		"0.0.0.0:"+strconv.Itoa(GRPCServerPort),
+		"0.0.0.0:"+strconv.Itoa(cfg.GRPCServerPort),
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 	)
 
 	if err != nil {
 		mainLogger.Error(ctx, err.Error())
+		return
 	}
 
 	gwMux := runtime.NewServeMux()
 	if err := proto.RegisterRoomsServiceHandler(ctx, gwMux, conn); err != nil {
 		mainLogger.Error(ctx, err.Error())
+		return
 	}
 
 	gwServer := &http.Server{
-		Addr:    ":" + strconv.Itoa(RESTServerPort),
+		Addr:    ":" + strconv.Itoa(cfg.RESTServerPort),
 		Handler: wsproxy.WebsocketProxy(gwMux),
 	}
 
@@ -62,15 +70,16 @@ func main() {
 		}
 	}()
 
-	mainLogger.Info(ctx, "gRPC server started", zap.Int("port", GRPCServerPort))
+	mainLogger.Info(ctx, "gRPC server started", zap.Int("port", cfg.GRPCServerPort))
 
 	go func() {
 		if err := gwServer.ListenAndServe(); err != nil {
 			mainLogger.Error(ctx, err.Error())
+			return
 		}
 	}()
 
-	mainLogger.Info(ctx, "Gateway server started", zap.Int("port", RESTServerPort))
+	mainLogger.Info(ctx, "Gateway server started", zap.Int("port", cfg.RESTServerPort))
 
 	<-graceCh
 
@@ -78,10 +87,12 @@ func main() {
 
 	if err := gwServer.Shutdown(ctx); err != nil {
 		mainLogger.Error(ctx, err.Error())
+		return
 	}
 
 	if err := grpcServer.Stop(ctx); err != nil {
 		mainLogger.Error(ctx, err.Error())
+		return
 	}
 
 	mainLogger.Info(ctx, "Successfully shut down")

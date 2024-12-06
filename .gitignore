@@ -1,6 +1,12 @@
 # JetBrains
 .idea
 
+# Environment
+venv
+.venv
+env
+.env
+
 ### Linux template
 *~
 
