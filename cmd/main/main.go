@@ -2,6 +2,12 @@ package main
 
 import (
 	"context"
+	"fmt"
+	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"github.com/tmc/grpc-websocket-proxy/wsproxy"
 	"gitlab.crja72.ru/gospec/go5/contracts/proto/rooms/go/proto"
@@ -11,11 +17,6 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
-	"net/http"
-	"os"
-	"os/signal"
-	"strconv"
-	"syscall"
 )
 
 var (
@@ -24,40 +25,39 @@ var (
 
 func main() {
 	ctx := context.Background()
-	mainLogger := logger.New(serviceName)
+	mainLogger := logger.New(zap.InfoLevel, serviceName)
 	ctx = context.WithValue(ctx, logger.LoggerKey, mainLogger)
 
 	cfg, err := config.New()
 	if err != nil {
-		mainLogger.Error(ctx, err.Error())
+		mainLogger.Fatal(ctx, err.Error())
 		return
 	}
-
-	grpcServer, err := transport.NewServer(ctx, cfg.GRPCServerPort)
+	grpcServer, err := transport.NewServer(ctx, cfg.GRPCServerHost, cfg.GRPCServerPort)
 
 	if err != nil {
-		mainLogger.Error(ctx, err.Error())
+		mainLogger.Fatal(ctx, err.Error())
 		return
 	}
 
 	conn, err := grpc.NewClient(
-		"0.0.0.0:"+strconv.Itoa(cfg.GRPCServerPort),
+		fmt.Sprintf("%s:%d", cfg.GRPCServerHost, cfg.GRPCServerPort),
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 	)
 
 	if err != nil {
-		mainLogger.Error(ctx, err.Error())
+		mainLogger.Fatal(ctx, err.Error())
 		return
 	}
 
 	gwMux := runtime.NewServeMux()
 	if err := proto.RegisterRoomsServiceHandler(ctx, gwMux, conn); err != nil {
-		mainLogger.Error(ctx, err.Error())
+		mainLogger.Fatal(ctx, err.Error())
 		return
 	}
 
 	gwServer := &http.Server{
-		Addr:    ":" + strconv.Itoa(cfg.RESTServerPort),
+		Addr:    fmt.Sprintf("%s:%d", cfg.RESTServerHost, cfg.RESTServerPort),
 		Handler: wsproxy.WebsocketProxy(gwMux),
 	}
 
