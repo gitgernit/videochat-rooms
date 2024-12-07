@@ -3,10 +3,11 @@ package grpc
 import (
 	"context"
 	"fmt"
+	"net"
+
 	"gitlab.crja72.ru/gospec/go5/contracts/proto/rooms/go/proto"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
-	"net"
 )
 
 type Server struct {
@@ -14,8 +15,8 @@ type Server struct {
 	listener   net.Listener
 }
 
-func NewServer(ctx context.Context, port int) (*Server, error) {
-	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
+func NewServer(ctx context.Context, grpcHost string, grpcPort int) (*Server, error) {
+	lis, err := net.Listen("tcp", fmt.Sprintf("%s:%d", grpcHost, grpcPort))
 	if err != nil {
 		return nil, err
 	}

@@ -5,6 +5,7 @@ go 1.23.2
 require (
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.24.0
 	github.com/ilyakaznacheev/cleanenv v1.5.0
+	github.com/joho/godotenv v1.5.1
 	github.com/tmc/grpc-websocket-proxy v0.0.0-20220101234140-673ab2c3ae75
 	gitlab.crja72.ru/gospec/go5/contracts/proto/rooms/go v0.0.0-20241205214847-709b71565fcb
 	go.uber.org/zap v1.27.0
@@ -15,7 +16,6 @@ require (
 require (
 	github.com/BurntSushi/toml v1.2.1 // indirect
 	github.com/gorilla/websocket v1.4.2 // indirect
-	github.com/joho/godotenv v1.5.1 // indirect
 	github.com/rogpeppe/go-internal v1.13.1 // indirect
 	github.com/sirupsen/logrus v1.8.1 // indirect
 	go.uber.org/multierr v1.10.0 // indirect
