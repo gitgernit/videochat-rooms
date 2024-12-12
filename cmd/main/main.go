@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"github.com/rs/cors"
 	"net/http"
 	"os"
 	"os/signal"
@@ -67,9 +68,18 @@ func main() {
 		return
 	}
 
+	corsMux := cors.New(cors.Options{
+		AllowOriginFunc:  func(origin string) bool { return true },
+		AllowedMethods:   []string{"GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"},
+		AllowedHeaders:   []string{"ACCEPT", "Authorization", "Content-Type", "X-CSRF-Token"},
+		ExposedHeaders:   []string{"Link"},
+		AllowCredentials: true,
+		MaxAge:           300,
+	}).Handler(wsMux)
+
 	gwServer := &http.Server{
 		Addr:    fmt.Sprintf("%s:%d", cfg.RESTServerHost, cfg.RESTServerPort),
-		Handler: wsMux,
+		Handler: corsMux,
 	}
 
 	graceCh := make(chan os.Signal, 1)

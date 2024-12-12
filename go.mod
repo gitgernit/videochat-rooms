@@ -18,6 +18,7 @@ require (
 	github.com/BurntSushi/toml v1.2.1 // indirect
 	github.com/gorilla/websocket v1.4.2 // indirect
 	github.com/rogpeppe/go-internal v1.13.1 // indirect
+	github.com/rs/cors v1.11.1 // indirect
 	github.com/sirupsen/logrus v1.8.1 // indirect
 	go.uber.org/multierr v1.10.0 // indirect
 	golang.org/x/net v0.29.0 // indirect
