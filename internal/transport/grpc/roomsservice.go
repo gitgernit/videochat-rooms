@@ -175,15 +175,15 @@ func (s *roomsService) JoinRoom(stream proto.RoomsService_JoinRoomServer) error 
 			message := m.SendMessage
 			text := message.Text
 
-			users, err := interactor.GetRoomUsers(roomID)
+			roomUsers, err := interactor.GetRoomUsers(roomID)
 			if err != nil {
 				s.logger.Error(ctx, "couldnt fetch room users")
 				return status.Error(codes.Internal, err.Error())
 			}
 
-			for userStream, user := range s.Users {
-				if slices.Contains(users, user) {
-					userStream, ok := userStream.(proto.RoomsService_JoinRoomServer)
+			for stream, streamUser := range s.Users {
+				if slices.Contains(roomUsers, streamUser) {
+					userStream, ok := stream.(proto.RoomsService_JoinRoomServer)
 					if !ok {
 						s.logger.Error(ctx, "couldnt convert stream to JoinRoom server stream")
 						return status.Error(codes.Internal, err.Error())
