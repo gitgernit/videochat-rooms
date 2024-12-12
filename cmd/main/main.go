@@ -25,7 +25,7 @@ var (
 
 func main() {
 	ctx := context.Background()
-	mainLogger := logger.New(zap.InfoLevel, serviceName)
+	mainLogger := logger.New(zap.DebugLevel, serviceName)
 	ctx = context.WithValue(ctx, logger.LoggerKey, mainLogger)
 
 	cfg, err := config.New()
@@ -33,7 +33,7 @@ func main() {
 		mainLogger.Fatal(ctx, err.Error())
 		return
 	}
-	grpcServer, err := transport.NewServer(ctx, cfg.GRPCServerHost, cfg.GRPCServerPort)
+	grpcServer, err := transport.NewServer(ctx, mainLogger, cfg.GRPCServerHost, cfg.GRPCServerPort)
 
 	if err != nil {
 		mainLogger.Fatal(ctx, err.Error())
@@ -50,7 +50,18 @@ func main() {
 		return
 	}
 
-	gwMux := runtime.NewServeMux()
+	gwMux := runtime.NewServeMux(
+		runtime.WithIncomingHeaderMatcher(transport.RoomsHeaderMatcher),
+	)
+	wsMux := wsproxy.WebsocketProxy(gwMux,
+		wsproxy.WithRequestMutator(transport.WebsocketParamMutator),
+		wsproxy.WithForwardedHeaders(
+			func(header string) bool {
+				_, ok := transport.RoomsHeaderMatcher(header)
+				return ok
+			},
+		),
+	)
 	if err := proto.RegisterRoomsServiceHandler(ctx, gwMux, conn); err != nil {
 		mainLogger.Fatal(ctx, err.Error())
 		return
@@ -58,7 +69,7 @@ func main() {
 
 	gwServer := &http.Server{
 		Addr:    fmt.Sprintf("%s:%d", cfg.RESTServerHost, cfg.RESTServerPort),
-		Handler: wsproxy.WebsocketProxy(gwMux),
+		Handler: wsMux,
 	}
 
 	graceCh := make(chan os.Signal, 1)
