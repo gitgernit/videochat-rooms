@@ -1,8 +1,8 @@
 package pingpong
 
-type PingInteractor struct{}
+type Interactor struct{}
 
-func (p PingInteractor) Ping(ping Ping) (Pong, error) {
+func (p Interactor) Ping(ping Ping) (Pong, error) {
 	counter := ping.Counter
 
 	return Pong{Counter: counter + 1}, nil

@@ -3,6 +3,8 @@ package grpc
 import (
 	"context"
 	"fmt"
+	"gitlab.crja72.ru/gospec/go5/rooms/internal/infrastructure/rooms/repositories/memory"
+	"gitlab.crja72.ru/gospec/go5/rooms/pkg/logger"
 	"net"
 
 	"gitlab.crja72.ru/gospec/go5/contracts/proto/rooms/go/proto"
@@ -15,7 +17,7 @@ type Server struct {
 	listener   net.Listener
 }
 
-func NewServer(ctx context.Context, grpcHost string, grpcPort int) (*Server, error) {
+func NewServer(ctx context.Context, logger logger.Logger, grpcHost string, grpcPort int) (*Server, error) {
 	lis, err := net.Listen("tcp", fmt.Sprintf("%s:%d", grpcHost, grpcPort))
 	if err != nil {
 		return nil, err
@@ -23,8 +25,10 @@ func NewServer(ctx context.Context, grpcHost string, grpcPort int) (*Server, err
 
 	var opts []grpc.ServerOption
 
+	repository := memory.NewRepository()
+
 	grpcServer := grpc.NewServer(opts...)
-	proto.RegisterRoomsServiceServer(grpcServer, newRoomsService())
+	proto.RegisterRoomsServiceServer(grpcServer, newRoomsService(logger, repository))
 
 	return &Server{grpcServer, lis}, nil
 }
