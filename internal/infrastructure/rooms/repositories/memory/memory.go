@@ -2,8 +2,9 @@ package memory
 
 import (
 	"fmt"
-	"gitlab.crja72.ru/gospec/go5/rooms/internal/domain/rooms"
 	"slices"
+
+	"gitlab.crja72.ru/gospec/go5/rooms/internal/domain/rooms"
 )
 
 type Repository struct {
