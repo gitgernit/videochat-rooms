@@ -2,6 +2,10 @@ package grpc
 
 import (
 	"context"
+	"io"
+	"net/http"
+	"slices"
+
 	"gitlab.crja72.ru/gospec/go5/contracts/proto/rooms/go/proto"
 	"gitlab.crja72.ru/gospec/go5/rooms/internal/domain/pingpong"
 	"gitlab.crja72.ru/gospec/go5/rooms/internal/domain/rooms"
@@ -11,9 +15,6 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
-	"io"
-	"net/http"
-	"slices"
 )
 
 const (
@@ -186,7 +187,7 @@ func (s *roomsService) JoinRoom(stream proto.RoomsService_JoinRoomServer) error 
 					userStream, ok := stream.(proto.RoomsService_JoinRoomServer)
 					if !ok {
 						s.logger.Error(ctx, "couldnt convert stream to JoinRoom server stream")
-						return status.Error(codes.Internal, err.Error())
+						return status.Error(codes.Internal, "couldnt process all room users")
 					}
 
 					message := &proto.MessageReceivedNotification{Text: text, Username: user.Name}
