@@ -25,7 +25,15 @@ type Server struct {
 	gwServer     *http.Server
 }
 
-func NewServer(ctx context.Context, logger logger.Logger, grpcHost, gwHost string, grpcPort, gwPort int) (*Server, error) {
+func NewServer(
+	ctx context.Context,
+	logger logger.Logger,
+	incomingRoomsChannel chan string,
+	grpcHost,
+	gwHost string,
+	grpcPort,
+	gwPort int,
+) (*Server, error) {
 	grpcLis, err := net.Listen("tcp", fmt.Sprintf("%s:%d", grpcHost, grpcPort))
 	if err != nil {
 		return nil, err
@@ -36,7 +44,7 @@ func NewServer(ctx context.Context, logger logger.Logger, grpcHost, gwHost strin
 	repository := memory.NewRepository()
 
 	grpcServer := grpc.NewServer(opts...)
-	proto.RegisterRoomsServiceServer(grpcServer, newRoomsService(logger, repository))
+	proto.RegisterRoomsServiceServer(grpcServer, newRoomsService(logger, repository, incomingRoomsChannel))
 
 	gwMux := runtime.NewServeMux(
 		runtime.WithIncomingHeaderMatcher(RoomsHeaderMatcher),

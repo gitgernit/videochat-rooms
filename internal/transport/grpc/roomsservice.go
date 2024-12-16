@@ -47,16 +47,18 @@ func WebsocketParamMutator(incoming *http.Request, outgoing *http.Request) *http
 
 type roomsService struct {
 	proto.UnimplementedRoomsServiceServer
-	logger     logger.Logger
-	repository rooms.Repository
-	Users      map[grpc.ServerStream]rooms.User
+	logger               logger.Logger
+	repository           rooms.Repository
+	incomingRoomsChannel chan string
+	Users                map[grpc.ServerStream]rooms.User
 }
 
-func newRoomsService(logger logger.Logger, repository rooms.Repository) *roomsService {
+func newRoomsService(logger logger.Logger, repository rooms.Repository, incomingRoomsChannel chan string) *roomsService {
 	return &roomsService{
-		logger:     logger,
-		repository: repository,
-		Users:      make(map[grpc.ServerStream]rooms.User),
+		logger:               logger,
+		repository:           repository,
+		Users:                make(map[grpc.ServerStream]rooms.User),
+		incomingRoomsChannel: incomingRoomsChannel,
 	}
 }
 
@@ -90,8 +92,27 @@ func (s *roomsService) PingPong(stream proto.RoomsService_PingPongServer) error 
 	}
 }
 
+func (s *roomsService) ListenForRooms(in *proto.ListenForRoomsRequest, stream proto.RoomsService_ListenForRoomsServer) error {
+	ctx := stream.Context()
+
+	for {
+		select {
+		case roomID := <-s.incomingRoomsChannel:
+			notification := &proto.NewRoomNotification{Id: roomID}
+			if err := stream.Send(notification); err != nil {
+				s.logger.Error(ctx, "could not send room notification", zap.String("room_id", roomID), zap.Error(err))
+				return status.Error(codes.Internal, err.Error())
+			}
+
+		case <-ctx.Done():
+			s.logger.Info(ctx, "Stopping ListenForRooms")
+			return nil
+		}
+	}
+}
+
 func (s *roomsService) CreateRoom(ctx context.Context, req *proto.CreateRoomRequest) (*proto.CreateRoomResponse, error) {
-	interactor := rooms.NewInteractor(s.logger, s.repository)
+	interactor := rooms.NewInteractor(s.logger, s.repository, s.incomingRoomsChannel)
 
 	id, err := interactor.CreateRoom()
 	if err != nil {
@@ -103,7 +124,7 @@ func (s *roomsService) CreateRoom(ctx context.Context, req *proto.CreateRoomRequ
 
 func (s *roomsService) JoinRoom(stream proto.RoomsService_JoinRoomServer) error {
 	ctx := stream.Context()
-	interactor := rooms.NewInteractor(s.logger, s.repository)
+	interactor := rooms.NewInteractor(s.logger, s.repository, s.incomingRoomsChannel)
 
 	md, ok := metadata.FromIncomingContext(ctx)
 	if !ok {
