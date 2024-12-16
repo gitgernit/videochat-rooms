@@ -36,7 +36,7 @@ func NewServer(ctx context.Context, logger logger.Logger, grpcHost, gwHost strin
 	repository := memory.NewRepository()
 
 	grpcServer := grpc.NewServer(opts...)
-	proto.RegisterRoomsServiceServer(grpcServer, newRoomsService(logger, repository))
+	proto.RegisterRoomsServiceServer(grpcServer, NewRoomsService(logger, repository))
 
 	gwMux := runtime.NewServeMux(
 		runtime.WithIncomingHeaderMatcher(RoomsHeaderMatcher),
