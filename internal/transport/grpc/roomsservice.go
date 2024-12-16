@@ -2,6 +2,7 @@ package grpc
 
 import (
 	"context"
+	"github.com/google/uuid"
 	"io"
 	"net/http"
 	"slices"
@@ -105,7 +106,6 @@ func (s *roomsService) ListenForRooms(in *proto.ListenForRoomsRequest, stream pr
 			}
 
 		case <-ctx.Done():
-			s.logger.Info(ctx, "Stopping ListenForRooms")
 			return nil
 		}
 	}
@@ -137,13 +137,7 @@ func (s *roomsService) JoinRoom(stream proto.RoomsService_JoinRoomServer) error 
 	}
 	username := usernames[0]
 
-	for _, u := range s.Users {
-		if u.Name == username {
-			return status.Error(codes.InvalidArgument, "username already taken")
-		}
-	}
-
-	user := rooms.User{Name: username}
+	user := rooms.User{Name: username, Id: uuid.New()}
 	s.Users[stream] = user
 	defer delete(s.Users, stream)
 
@@ -152,6 +146,17 @@ func (s *roomsService) JoinRoom(stream proto.RoomsService_JoinRoomServer) error 
 		return status.Error(codes.InvalidArgument, "couldnt extract room id from request")
 	}
 	roomID := roomIDs[0]
+
+	roomUsers, err := interactor.GetRoomUsers(roomID)
+	if err != nil {
+		return status.Error(codes.Internal, "couldnt fetch room users")
+	}
+
+	for _, u := range roomUsers {
+		if u.Name == username {
+			return status.Error(codes.InvalidArgument, "username already taken")
+		}
+	}
 
 	allRooms, err := interactor.GetRooms()
 	if err != nil {
@@ -186,7 +191,6 @@ func (s *roomsService) JoinRoom(stream proto.RoomsService_JoinRoomServer) error 
 		}
 
 		if err != nil {
-			s.logger.Error(ctx, err.Error())
 			return status.Error(codes.Internal, err.Error())
 		}
 
