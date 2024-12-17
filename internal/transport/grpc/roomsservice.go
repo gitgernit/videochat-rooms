@@ -45,22 +45,22 @@ func WebsocketParamMutator(incoming *http.Request, outgoing *http.Request) *http
 	return outgoing
 }
 
-type roomsService struct {
+type RoomsService struct {
 	proto.UnimplementedRoomsServiceServer
 	logger     logger.Logger
 	repository rooms.Repository
 	Users      map[grpc.ServerStream]rooms.User
 }
 
-func newRoomsService(logger logger.Logger, repository rooms.Repository) *roomsService {
-	return &roomsService{
+func NewRoomsService(logger logger.Logger, repository rooms.Repository) *RoomsService {
+	return &RoomsService{
 		logger:     logger,
 		repository: repository,
 		Users:      make(map[grpc.ServerStream]rooms.User),
 	}
 }
 
-func (s *roomsService) PingPong(stream proto.RoomsService_PingPongServer) error {
+func (s *RoomsService) PingPong(stream proto.RoomsService_PingPongServer) error {
 	interactor := pingpong.Interactor{}
 
 	for {
@@ -90,7 +90,7 @@ func (s *roomsService) PingPong(stream proto.RoomsService_PingPongServer) error 
 	}
 }
 
-func (s *roomsService) CreateRoom(ctx context.Context, req *proto.CreateRoomRequest) (*proto.CreateRoomResponse, error) {
+func (s *RoomsService) CreateRoom(ctx context.Context, req *proto.CreateRoomRequest) (*proto.CreateRoomResponse, error) {
 	interactor := rooms.NewInteractor(s.logger, s.repository)
 
 	id, err := interactor.CreateRoom()
@@ -101,7 +101,7 @@ func (s *roomsService) CreateRoom(ctx context.Context, req *proto.CreateRoomRequ
 	return &proto.CreateRoomResponse{Id: id}, nil
 }
 
-func (s *roomsService) JoinRoom(stream proto.RoomsService_JoinRoomServer) error {
+func (s *RoomsService) JoinRoom(stream proto.RoomsService_JoinRoomServer) error {
 	ctx := stream.Context()
 	interactor := rooms.NewInteractor(s.logger, s.repository)
 
