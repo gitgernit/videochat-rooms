@@ -9,7 +9,7 @@ require (
 	github.com/joho/godotenv v1.5.1
 	github.com/rs/cors v1.11.1
 	github.com/tmc/grpc-websocket-proxy v0.0.0-20220101234140-673ab2c3ae75
-	gitlab.crja72.ru/gospec/go5/contracts/proto/rooms/go v0.0.0-20241215225214-878afd8bd093
+	gitlab.crja72.ru/gospec/go5/contracts/proto/rooms/go v0.0.0-20241216224328-5a3460a9d6e1
 	go.uber.org/zap v1.27.0
 	golang.org/x/sync v0.9.0
 	google.golang.org/grpc v1.68.1

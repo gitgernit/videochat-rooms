@@ -183,6 +183,40 @@ func (s *roomsService) JoinRoom(stream proto.RoomsService_JoinRoomServer) error 
 		}
 	}()
 
+	roomUsers, err = interactor.GetRoomUsers(roomID)
+	if err != nil {
+		return status.Error(codes.Internal, "couldnt fetch room users")
+	}
+
+	protoRoomUsers := make([]*proto.User, len(roomUsers))
+	for i, u := range roomUsers {
+		user := proto.User{Id: u.Id.String(), Username: u.Name}
+		protoRoomUsers[i] = &user
+	}
+
+	method := &proto.RoomMethod{
+		Method: &proto.RoomMethod_RoomUsers_{
+			RoomUsers_: &proto.RoomUsers{
+				Users: protoRoomUsers,
+			},
+		},
+	}
+
+	for stream, streamUser := range s.Users {
+		if slices.Contains(roomUsers, streamUser) {
+			userStream, ok := stream.(proto.RoomsService_JoinRoomServer)
+			if !ok {
+				s.logger.Error(ctx, "couldnt convert stream to JoinRoom server stream")
+				return status.Error(codes.Internal, "couldnt process all room users")
+			}
+
+			err = userStream.Send(method)
+			if err != nil {
+				return status.Error(codes.Internal, "couldnt send room users")
+			}
+		}
+	}
+
 	for {
 		msg, err := stream.Recv()
 
