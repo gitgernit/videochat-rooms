@@ -243,6 +243,9 @@ func (s *roomsService) JoinRoom(stream proto.RoomsService_JoinRoomServer) error 
 				}
 			}
 
+		case *proto.RoomMethod_SendSdp:
+			s.logger.Debug(ctx, "received sdps", zap.Any("sdps", m.SendSdp.Sdp))
+
 		default:
 			return status.Error(codes.InvalidArgument, "received invalid method")
 		}
