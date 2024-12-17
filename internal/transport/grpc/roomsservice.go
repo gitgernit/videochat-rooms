@@ -20,8 +20,9 @@ import (
 )
 
 const (
-	usernameMetadata = "username"
-	roomIDMetadata   = "room_id"
+	usernameMetadata   = "username"
+	roomIDMetadata     = "room_id"
+	dispatcherUsername = "dispatcher"
 )
 
 func RoomsHeaderMatcher(key string) (string, bool) {
@@ -52,14 +53,14 @@ type roomsService struct {
 	logger               logger.Logger
 	repository           rooms.Repository
 	incomingRoomsChannel chan string
-	Users                map[grpc.ServerStream]rooms.User
+	Users                map[rooms.User]grpc.ServerStream
 }
 
 func newRoomsService(logger logger.Logger, repository rooms.Repository, incomingRoomsChannel chan string) *roomsService {
 	return &roomsService{
 		logger:               logger,
 		repository:           repository,
-		Users:                make(map[grpc.ServerStream]rooms.User),
+		Users:                make(map[rooms.User]grpc.ServerStream),
 		incomingRoomsChannel: incomingRoomsChannel,
 	}
 }
@@ -139,8 +140,8 @@ func (s *roomsService) JoinRoom(stream proto.RoomsService_JoinRoomServer) error 
 	username := usernames[0]
 
 	user := rooms.User{Name: username, Id: uuid.New()}
-	s.Users[stream] = user
-	defer delete(s.Users, stream)
+	s.Users[user] = stream
+	defer delete(s.Users, user)
 
 	roomIDs, ok := md["room_id"]
 	if !ok {
@@ -220,7 +221,7 @@ func (s *roomsService) JoinRoom(stream proto.RoomsService_JoinRoomServer) error 
 				return status.Error(codes.Internal, err.Error())
 			}
 
-			for stream, streamUser := range s.Users {
+			for streamUser, stream := range s.Users {
 				if slices.Contains(roomUsers, streamUser) {
 					userStream, ok := stream.(proto.RoomsService_JoinRoomServer)
 					if !ok {
@@ -244,7 +245,51 @@ func (s *roomsService) JoinRoom(stream proto.RoomsService_JoinRoomServer) error 
 			}
 
 		case *proto.RoomMethod_SendSdp:
-			s.logger.Debug(ctx, "received sdps", zap.Any("sdps", m.SendSdp.Sdp))
+			message := m.SendSdp
+			sdps := message.Sdp
+
+			roomUsers, err := interactor.GetRoomUsers(roomID)
+			if err != nil {
+				s.logger.Error(ctx, "couldnt fetch room users")
+				return status.Error(codes.Internal, err.Error())
+			}
+
+			for _, sdp := range sdps {
+				if sdp.Username != dispatcherUsername {
+					user := roomUsers[0]
+
+					for _, roomUser := range roomUsers {
+						if roomUser.Name == sdp.Username {
+							user = roomUser
+							break
+						}
+					}
+
+					stream := s.Users[user]
+
+					userStream, ok := stream.(proto.RoomsService_JoinRoomServer)
+					if !ok {
+						s.logger.Error(ctx, "couldnt convert stream to JoinRoom server stream")
+						return status.Error(codes.Internal, "couldnt process all room users")
+					}
+
+					method := &proto.RoomMethod{
+						Method: &proto.RoomMethod_SdpReceived{
+							SdpReceived: &proto.SDPReceivedNotification{
+								Type:     sdp.Type,
+								Sdp:      sdp.Sdp,
+								Username: sdp.Username,
+							},
+						},
+					}
+
+					err := userStream.Send(method)
+					if err != nil {
+						s.logger.Error(ctx, "couldnt send sdp")
+						return status.Error(codes.Internal, err.Error())
+					}
+				}
+			}
 
 		default:
 			return status.Error(codes.InvalidArgument, "received invalid method")
@@ -272,7 +317,7 @@ func (s *roomsService) sendRoomUsers(ctx context.Context, interactor rooms.Inter
 		},
 	}
 
-	for stream, streamUser := range s.Users {
+	for streamUser, stream := range s.Users {
 		if slices.Contains(roomUsers, streamUser) {
 			userStream, ok := stream.(proto.RoomsService_JoinRoomServer)
 			if !ok {
