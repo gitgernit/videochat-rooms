@@ -2,6 +2,7 @@ package grpc
 
 import (
 	"context"
+	"fmt"
 	"github.com/google/uuid"
 	"io"
 	"net/http"
@@ -177,45 +178,23 @@ func (s *roomsService) JoinRoom(stream proto.RoomsService_JoinRoomServer) error 
 		s.logger.Error(ctx, "couldnt join room", zap.String("room_id", roomID), zap.String("username", username))
 		return status.Error(codes.Internal, err.Error())
 	}
-	defer func() {
-		if err := interactor.LeaveRoom(roomID, user); err != nil {
+
+	err = s.sendRoomUsers(ctx, interactor, roomID)
+	if err != nil {
+		return status.Error(codes.Internal, err.Error())
+	}
+	defer func(s *roomsService, ctx context.Context, interactor rooms.Interactor, roomID string) {
+		err := s.sendRoomUsers(ctx, interactor, roomID)
+		if err != nil {
+			s.logger.Error(ctx, "couldnt send room users upon user leaving room")
+		}
+	}(s, ctx, interactor, roomID)
+	defer func(interactor rooms.Interactor, id string, user rooms.User) {
+		err := interactor.LeaveRoom(id, user)
+		if err != nil {
 			s.logger.Error(ctx, err.Error(), zap.String("room_id", roomID), zap.String("username", user.Name))
 		}
-	}()
-
-	roomUsers, err = interactor.GetRoomUsers(roomID)
-	if err != nil {
-		return status.Error(codes.Internal, "couldnt fetch room users")
-	}
-
-	protoRoomUsers := make([]*proto.User, len(roomUsers))
-	for i, u := range roomUsers {
-		user := proto.User{Id: u.Id.String(), Username: u.Name}
-		protoRoomUsers[i] = &user
-	}
-
-	method := &proto.RoomMethod{
-		Method: &proto.RoomMethod_RoomUsers_{
-			RoomUsers_: &proto.RoomUsers{
-				Users: protoRoomUsers,
-			},
-		},
-	}
-
-	for stream, streamUser := range s.Users {
-		if slices.Contains(roomUsers, streamUser) {
-			userStream, ok := stream.(proto.RoomsService_JoinRoomServer)
-			if !ok {
-				s.logger.Error(ctx, "couldnt convert stream to JoinRoom server stream")
-				return status.Error(codes.Internal, "couldnt process all room users")
-			}
-
-			err = userStream.Send(method)
-			if err != nil {
-				return status.Error(codes.Internal, "couldnt send room users")
-			}
-		}
-	}
+	}(interactor, roomID, user)
 
 	for {
 		msg, err := stream.Recv()
@@ -268,4 +247,42 @@ func (s *roomsService) JoinRoom(stream proto.RoomsService_JoinRoomServer) error 
 			return status.Error(codes.InvalidArgument, "received invalid method")
 		}
 	}
+}
+
+func (s *roomsService) sendRoomUsers(ctx context.Context, interactor rooms.Interactor, roomID string) error {
+	roomUsers, err := interactor.GetRoomUsers(roomID)
+	if err != nil {
+		return status.Error(codes.Internal, "couldnt fetch room users")
+	}
+
+	protoRoomUsers := make([]*proto.User, len(roomUsers))
+	for i, u := range roomUsers {
+		user := proto.User{Id: u.Id.String(), Username: u.Name}
+		protoRoomUsers[i] = &user
+	}
+
+	method := &proto.RoomMethod{
+		Method: &proto.RoomMethod_RoomUsers_{
+			RoomUsers_: &proto.RoomUsers{
+				Users: protoRoomUsers,
+			},
+		},
+	}
+
+	for stream, streamUser := range s.Users {
+		if slices.Contains(roomUsers, streamUser) {
+			userStream, ok := stream.(proto.RoomsService_JoinRoomServer)
+			if !ok {
+				s.logger.Error(ctx, "couldnt convert stream to JoinRoom server stream")
+				return fmt.Errorf("couldnt process all room users")
+			}
+
+			err = userStream.Send(method)
+			if err != nil {
+				return fmt.Errorf("couldnt send room users")
+			}
+		}
+	}
+
+	return nil
 }
