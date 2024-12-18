@@ -255,39 +255,37 @@ func (s *roomsService) JoinRoom(stream proto.RoomsService_JoinRoomServer) error 
 			}
 
 			for _, sdp := range sdps {
-				if sdp.Username != dispatcherUsername {
-					user := roomUsers[0]
+				user := roomUsers[0]
 
-					for _, roomUser := range roomUsers {
-						if roomUser.Name == sdp.Username {
-							user = roomUser
-							break
-						}
+				for _, roomUser := range roomUsers {
+					if roomUser.Name == sdp.Username {
+						user = roomUser
+						break
 					}
+				}
 
-					stream := s.Users[user]
+				stream := s.Users[user]
 
-					userStream, ok := stream.(proto.RoomsService_JoinRoomServer)
-					if !ok {
-						s.logger.Error(ctx, "couldnt convert stream to JoinRoom server stream")
-						return status.Error(codes.Internal, "couldnt process all room users")
-					}
+				userStream, ok := stream.(proto.RoomsService_JoinRoomServer)
+				if !ok {
+					s.logger.Error(ctx, "couldnt convert stream to JoinRoom server stream")
+					return status.Error(codes.Internal, "couldnt process all room users")
+				}
 
-					method := &proto.RoomMethod{
-						Method: &proto.RoomMethod_SdpReceived{
-							SdpReceived: &proto.SDPReceivedNotification{
-								Type:     sdp.Type,
-								Sdp:      sdp.Sdp,
-								Username: sdp.Username,
-							},
+				method := &proto.RoomMethod{
+					Method: &proto.RoomMethod_SdpReceived{
+						SdpReceived: &proto.SDPReceivedNotification{
+							Type:     sdp.Type,
+							Sdp:      sdp.Sdp,
+							Username: sdp.Username,
 						},
-					}
+					},
+				}
 
-					err := userStream.Send(method)
-					if err != nil {
-						s.logger.Error(ctx, "couldnt send sdp")
-						return status.Error(codes.Internal, err.Error())
-					}
+				err := userStream.Send(method)
+				if err != nil {
+					s.logger.Error(ctx, "couldnt send sdp")
+					return status.Error(codes.Internal, err.Error())
 				}
 			}
 
