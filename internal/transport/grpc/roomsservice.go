@@ -275,9 +275,10 @@ func (s *roomsService) JoinRoom(stream proto.RoomsService_JoinRoomServer) error 
 				method := &proto.RoomMethod{
 					Method: &proto.RoomMethod_SdpReceived{
 						SdpReceived: &proto.SDPReceivedNotification{
-							Type:     sdp.Type,
-							Sdp:      sdp.Sdp,
-							Username: sdp.Username,
+							Type: sdp.Type,
+							Sdp:  sdp.Sdp,
+							To:   sdp.Username,
+							From: username,
 						},
 					},
 				}

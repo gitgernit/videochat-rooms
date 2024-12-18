@@ -42,6 +42,8 @@ gitlab.crja72.ru/gospec/go5/contracts/proto/rooms/go v0.0.0-20241215225214-878af
 gitlab.crja72.ru/gospec/go5/contracts/proto/rooms/go v0.0.0-20241215225214-878afd8bd093/go.mod h1:jdIadk26IphBbkUt4YFxtvqydsBnvYJvHcKcVSUQtjk=
 gitlab.crja72.ru/gospec/go5/contracts/proto/rooms/go v0.0.0-20241216224328-5a3460a9d6e1 h1:aWBMUvdfjIngNx8qXrUUqG+H0HuYRXgyQGMe8KQC/Zw=
 gitlab.crja72.ru/gospec/go5/contracts/proto/rooms/go v0.0.0-20241216224328-5a3460a9d6e1/go.mod h1:jdIadk26IphBbkUt4YFxtvqydsBnvYJvHcKcVSUQtjk=
+gitlab.crja72.ru/gospec/go5/contracts/proto/rooms/go v0.0.0-20241218221556-88c12b63d25e h1:ei6pktH+ZPC1OKmfDajmE5kDTqs4AJtU3wz7Vtq2S1I=
+gitlab.crja72.ru/gospec/go5/contracts/proto/rooms/go v0.0.0-20241218221556-88c12b63d25e/go.mod h1:jdIadk26IphBbkUt4YFxtvqydsBnvYJvHcKcVSUQtjk=
 go.uber.org/goleak v1.3.0 h1:2K3zAYmnTNqV73imy9J1T3WC+gmCePx2hEGkimedGto=
 go.uber.org/goleak v1.3.0/go.mod h1:CoHD4mav9JJNrW/WLlf7HGZPjdw8EucARQHekz1X6bE=
 go.uber.org/multierr v1.10.0 h1:S0h4aNzvfcFsC3dRF1jLoaov7oRaKqRGC/pUEJ2yvPQ=
