@@ -48,7 +48,7 @@ func WebsocketParamMutator(incoming *http.Request, outgoing *http.Request) *http
 	return outgoing
 }
 
-type roomsService struct {
+type RoomsService struct {
 	proto.UnimplementedRoomsServiceServer
 	logger               logger.Logger
 	repository           rooms.Repository
@@ -56,8 +56,8 @@ type roomsService struct {
 	Users                map[rooms.User]grpc.ServerStream
 }
 
-func newRoomsService(logger logger.Logger, repository rooms.Repository, incomingRoomsChannel chan string) *roomsService {
-	return &roomsService{
+func NewRoomsService(logger logger.Logger, repository rooms.Repository, incomingRoomsChannel chan string) *RoomsService {
+	return &RoomsService{
 		logger:               logger,
 		repository:           repository,
 		Users:                make(map[rooms.User]grpc.ServerStream),
@@ -65,7 +65,7 @@ func newRoomsService(logger logger.Logger, repository rooms.Repository, incoming
 	}
 }
 
-func (s *roomsService) PingPong(stream proto.RoomsService_PingPongServer) error {
+func (s *RoomsService) PingPong(stream proto.RoomsService_PingPongServer) error {
 	interactor := pingpong.Interactor{}
 
 	for {
@@ -95,7 +95,7 @@ func (s *roomsService) PingPong(stream proto.RoomsService_PingPongServer) error 
 	}
 }
 
-func (s *roomsService) ListenForRooms(in *proto.ListenForRoomsRequest, stream proto.RoomsService_ListenForRoomsServer) error {
+func (s *RoomsService) ListenForRooms(in *proto.ListenForRoomsRequest, stream proto.RoomsService_ListenForRoomsServer) error {
 	ctx := stream.Context()
 
 	for {
@@ -113,7 +113,7 @@ func (s *roomsService) ListenForRooms(in *proto.ListenForRoomsRequest, stream pr
 	}
 }
 
-func (s *roomsService) CreateRoom(ctx context.Context, req *proto.CreateRoomRequest) (*proto.CreateRoomResponse, error) {
+func (s *RoomsService) CreateRoom(ctx context.Context, req *proto.CreateRoomRequest) (*proto.CreateRoomResponse, error) {
 	interactor := rooms.NewInteractor(s.logger, s.repository, s.incomingRoomsChannel)
 
 	id, err := interactor.CreateRoom()
@@ -124,7 +124,7 @@ func (s *roomsService) CreateRoom(ctx context.Context, req *proto.CreateRoomRequ
 	return &proto.CreateRoomResponse{Id: id}, nil
 }
 
-func (s *roomsService) JoinRoom(stream proto.RoomsService_JoinRoomServer) error {
+func (s *RoomsService) JoinRoom(stream proto.RoomsService_JoinRoomServer) error {
 	ctx := stream.Context()
 	interactor := rooms.NewInteractor(s.logger, s.repository, s.incomingRoomsChannel)
 
@@ -184,7 +184,7 @@ func (s *roomsService) JoinRoom(stream proto.RoomsService_JoinRoomServer) error 
 	if err != nil {
 		return status.Error(codes.Internal, err.Error())
 	}
-	defer func(s *roomsService, ctx context.Context, interactor rooms.Interactor, roomID string) {
+	defer func(s *RoomsService, ctx context.Context, interactor rooms.Interactor, roomID string) {
 		err := s.sendRoomUsers(ctx, interactor, roomID)
 		if err != nil {
 			s.logger.Error(ctx, "couldnt send room users upon user leaving room")
@@ -296,7 +296,7 @@ func (s *roomsService) JoinRoom(stream proto.RoomsService_JoinRoomServer) error 
 	}
 }
 
-func (s *roomsService) sendRoomUsers(ctx context.Context, interactor rooms.Interactor, roomID string) error {
+func (s *RoomsService) sendRoomUsers(ctx context.Context, interactor rooms.Interactor, roomID string) error {
 	roomUsers, err := interactor.GetRoomUsers(roomID)
 	if err != nil {
 		return status.Error(codes.Internal, "couldnt fetch room users")

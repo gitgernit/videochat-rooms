@@ -44,7 +44,7 @@ func NewServer(
 	repository := memory.NewRepository()
 
 	grpcServer := grpc.NewServer(opts...)
-	proto.RegisterRoomsServiceServer(grpcServer, newRoomsService(logger, repository, incomingRoomsChannel))
+	proto.RegisterRoomsServiceServer(grpcServer, NewRoomsService(logger, repository, incomingRoomsChannel))
 
 	gwMux := runtime.NewServeMux(
 		runtime.WithIncomingHeaderMatcher(RoomsHeaderMatcher),
