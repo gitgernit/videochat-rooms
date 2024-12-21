@@ -3,17 +3,22 @@ package rooms
 import (
 	"github.com/google/uuid"
 	"gitlab.crja72.ru/gospec/go5/rooms/pkg/logger"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+	"time"
 )
 
 type Interactor struct {
-	logger     logger.Logger
-	repository Repository
+	logger          logger.Logger
+	repository      Repository
+	newRoomsChannel chan string
 }
 
-func NewInteractor(logger logger.Logger, repository Repository) Interactor {
+func NewInteractor(logger logger.Logger, repository Repository, newRoomsChannel chan string) Interactor {
 	return Interactor{
-		logger:     logger,
-		repository: repository,
+		logger:          logger,
+		repository:      repository,
+		newRoomsChannel: newRoomsChannel,
 	}
 }
 
@@ -25,7 +30,12 @@ func (i Interactor) CreateRoom() (string, error) {
 		return "", err
 	}
 
-	return id.String(), nil
+	select {
+	case i.newRoomsChannel <- id.String():
+		return id.String(), nil
+	case <-time.After(5 * time.Second):
+		return "", status.Error(codes.Unavailable, "couldnt send the room to a coordinator")
+	}
 }
 
 func (i Interactor) JoinRoom(id string, user User) error {

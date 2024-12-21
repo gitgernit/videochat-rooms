@@ -27,7 +27,9 @@ func main() {
 		return
 	}
 
-	grpcServer, err := transport.NewServer(ctx, mainLogger, cfg.GRPCServerHost, cfg.RESTServerHost, cfg.GRPCServerPort, cfg.RESTServerPort)
+	roomsChannel := make(chan string)
+
+	grpcServer, err := transport.NewServer(ctx, mainLogger, roomsChannel, cfg.GRPCServerHost, cfg.RESTServerHost, cfg.GRPCServerPort, cfg.RESTServerPort)
 	if err != nil {
 		mainLogger.Fatal(ctx, err.Error())
 		return
