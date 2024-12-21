@@ -2,6 +2,8 @@ package grpc
 
 import (
 	"context"
+	"fmt"
+	"github.com/google/uuid"
 	"io"
 	"net/http"
 	"slices"
@@ -18,8 +20,9 @@ import (
 )
 
 const (
-	usernameMetadata = "username"
-	roomIDMetadata   = "room_id"
+	usernameMetadata   = "username"
+	roomIDMetadata     = "room_id"
+	dispatcherUsername = "dispatcher"
 )
 
 func RoomsHeaderMatcher(key string) (string, bool) {
@@ -47,16 +50,18 @@ func WebsocketParamMutator(incoming *http.Request, outgoing *http.Request) *http
 
 type RoomsService struct {
 	proto.UnimplementedRoomsServiceServer
-	logger     logger.Logger
-	repository rooms.Repository
-	Users      map[grpc.ServerStream]rooms.User
+	logger               logger.Logger
+	repository           rooms.Repository
+	incomingRoomsChannel chan string
+	Users                map[rooms.User]grpc.ServerStream
 }
 
-func NewRoomsService(logger logger.Logger, repository rooms.Repository) *RoomsService {
+func NewRoomsService(logger logger.Logger, repository rooms.Repository, incomingRoomsChannel chan string) *RoomsService {
 	return &RoomsService{
-		logger:     logger,
-		repository: repository,
-		Users:      make(map[grpc.ServerStream]rooms.User),
+		logger:               logger,
+		repository:           repository,
+		Users:                make(map[rooms.User]grpc.ServerStream),
+		incomingRoomsChannel: incomingRoomsChannel,
 	}
 }
 
@@ -90,8 +95,26 @@ func (s *RoomsService) PingPong(stream proto.RoomsService_PingPongServer) error 
 	}
 }
 
+func (s *RoomsService) ListenForRooms(in *proto.ListenForRoomsRequest, stream proto.RoomsService_ListenForRoomsServer) error {
+	ctx := stream.Context()
+
+	for {
+		select {
+		case roomID := <-s.incomingRoomsChannel:
+			notification := &proto.NewRoomNotification{Id: roomID}
+			if err := stream.Send(notification); err != nil {
+				s.logger.Error(ctx, "could not send room notification", zap.String("room_id", roomID), zap.Error(err))
+				return status.Error(codes.Internal, err.Error())
+			}
+
+		case <-ctx.Done():
+			return nil
+		}
+	}
+}
+
 func (s *RoomsService) CreateRoom(ctx context.Context, req *proto.CreateRoomRequest) (*proto.CreateRoomResponse, error) {
-	interactor := rooms.NewInteractor(s.logger, s.repository)
+	interactor := rooms.NewInteractor(s.logger, s.repository, s.incomingRoomsChannel)
 
 	id, err := interactor.CreateRoom()
 	if err != nil {
@@ -103,7 +126,7 @@ func (s *RoomsService) CreateRoom(ctx context.Context, req *proto.CreateRoomRequ
 
 func (s *RoomsService) JoinRoom(stream proto.RoomsService_JoinRoomServer) error {
 	ctx := stream.Context()
-	interactor := rooms.NewInteractor(s.logger, s.repository)
+	interactor := rooms.NewInteractor(s.logger, s.repository, s.incomingRoomsChannel)
 
 	md, ok := metadata.FromIncomingContext(ctx)
 	if !ok {
@@ -116,21 +139,26 @@ func (s *RoomsService) JoinRoom(stream proto.RoomsService_JoinRoomServer) error 
 	}
 	username := usernames[0]
 
-	for _, u := range s.Users {
-		if u.Name == username {
-			return status.Error(codes.InvalidArgument, "username already taken")
-		}
-	}
-
-	user := rooms.User{Name: username}
-	s.Users[stream] = user
-	defer delete(s.Users, stream)
+	user := rooms.User{Name: username, Id: uuid.New()}
+	s.Users[user] = stream
+	defer delete(s.Users, user)
 
 	roomIDs, ok := md["room_id"]
 	if !ok {
 		return status.Error(codes.InvalidArgument, "couldnt extract room id from request")
 	}
 	roomID := roomIDs[0]
+
+	roomUsers, err := interactor.GetRoomUsers(roomID)
+	if err != nil {
+		return status.Error(codes.Internal, "couldnt fetch room users")
+	}
+
+	for _, u := range roomUsers {
+		if u.Name == username {
+			return status.Error(codes.InvalidArgument, "username already taken")
+		}
+	}
 
 	allRooms, err := interactor.GetRooms()
 	if err != nil {
@@ -151,11 +179,23 @@ func (s *RoomsService) JoinRoom(stream proto.RoomsService_JoinRoomServer) error 
 		s.logger.Error(ctx, "couldnt join room", zap.String("room_id", roomID), zap.String("username", username))
 		return status.Error(codes.Internal, err.Error())
 	}
-	defer func() {
-		if err := interactor.LeaveRoom(roomID, user); err != nil {
+
+	err = s.sendRoomUsers(ctx, interactor, roomID)
+	if err != nil {
+		return status.Error(codes.Internal, err.Error())
+	}
+	defer func(s *RoomsService, ctx context.Context, interactor rooms.Interactor, roomID string) {
+		err := s.sendRoomUsers(ctx, interactor, roomID)
+		if err != nil {
+			s.logger.Error(ctx, "couldnt send room users upon user leaving room")
+		}
+	}(s, ctx, interactor, roomID)
+	defer func(interactor rooms.Interactor, id string, user rooms.User) {
+		err := interactor.LeaveRoom(id, user)
+		if err != nil {
 			s.logger.Error(ctx, err.Error(), zap.String("room_id", roomID), zap.String("username", user.Name))
 		}
-	}()
+	}(interactor, roomID, user)
 
 	for {
 		msg, err := stream.Recv()
@@ -165,7 +205,6 @@ func (s *RoomsService) JoinRoom(stream proto.RoomsService_JoinRoomServer) error 
 		}
 
 		if err != nil {
-			s.logger.Error(ctx, err.Error())
 			return status.Error(codes.Internal, err.Error())
 		}
 
@@ -182,7 +221,7 @@ func (s *RoomsService) JoinRoom(stream proto.RoomsService_JoinRoomServer) error 
 				return status.Error(codes.Internal, err.Error())
 			}
 
-			for stream, streamUser := range s.Users {
+			for streamUser, stream := range s.Users {
 				if slices.Contains(roomUsers, streamUser) {
 					userStream, ok := stream.(proto.RoomsService_JoinRoomServer)
 					if !ok {
@@ -205,8 +244,92 @@ func (s *RoomsService) JoinRoom(stream proto.RoomsService_JoinRoomServer) error 
 				}
 			}
 
+		case *proto.RoomMethod_SendSdp:
+			message := m.SendSdp
+			sdps := message.Sdp
+
+			roomUsers, err := interactor.GetRoomUsers(roomID)
+			if err != nil {
+				s.logger.Error(ctx, "couldnt fetch room users")
+				return status.Error(codes.Internal, err.Error())
+			}
+
+			for _, sdp := range sdps {
+				user := roomUsers[0]
+
+				for _, roomUser := range roomUsers {
+					if roomUser.Name == sdp.Username {
+						user = roomUser
+						break
+					}
+				}
+
+				stream := s.Users[user]
+
+				userStream, ok := stream.(proto.RoomsService_JoinRoomServer)
+				if !ok {
+					s.logger.Error(ctx, "couldnt convert stream to JoinRoom server stream")
+					return status.Error(codes.Internal, "couldnt process all room users")
+				}
+
+				method := &proto.RoomMethod{
+					Method: &proto.RoomMethod_SdpReceived{
+						SdpReceived: &proto.SDPReceivedNotification{
+							Type: sdp.Type,
+							Sdp:  sdp.Sdp,
+							To:   sdp.Username,
+							From: username,
+						},
+					},
+				}
+
+				err := userStream.Send(method)
+				if err != nil {
+					s.logger.Error(ctx, "couldnt send sdp")
+					return status.Error(codes.Internal, err.Error())
+				}
+			}
+
 		default:
 			return status.Error(codes.InvalidArgument, "received invalid method")
 		}
 	}
+}
+
+func (s *RoomsService) sendRoomUsers(ctx context.Context, interactor rooms.Interactor, roomID string) error {
+	roomUsers, err := interactor.GetRoomUsers(roomID)
+	if err != nil {
+		return status.Error(codes.Internal, "couldnt fetch room users")
+	}
+
+	protoRoomUsers := make([]*proto.User, len(roomUsers))
+	for i, u := range roomUsers {
+		user := proto.User{Id: u.Id.String(), Username: u.Name}
+		protoRoomUsers[i] = &user
+	}
+
+	method := &proto.RoomMethod{
+		Method: &proto.RoomMethod_RoomUsers_{
+			RoomUsers_: &proto.RoomUsers{
+				Users: protoRoomUsers,
+			},
+		},
+	}
+
+	for streamUser, stream := range s.Users {
+		if slices.Contains(roomUsers, streamUser) {
+			userStream, ok := stream.(proto.RoomsService_JoinRoomServer)
+			if !ok {
+				s.logger.Error(ctx, "couldnt convert stream to JoinRoom server stream")
+				return fmt.Errorf("couldnt process all room users")
+			}
+
+			err = userStream.Send(method)
+			if err != nil {
+				return fmt.Errorf("couldnt send room users")
+			}
+		}
+	}
+
+	return nil
 }
