@@ -2,10 +2,10 @@ package tests
 
 import (
 	"context"
-	"gitlab.crja72.ru/gospec/go5/contracts/proto/rooms/go/proto"
-	"gitlab.crja72.ru/gospec/go5/rooms/internal/infrastructure/rooms/repositories/memory"
-	transport "gitlab.crja72.ru/gospec/go5/rooms/internal/transport/grpc"
-	"gitlab.crja72.ru/gospec/go5/rooms/pkg/logger"
+	"github.com/gitgernit/videochat-contracts/proto/rooms/go/proto"
+	"github.com/gitgernit/videochat-rooms/internal/infrastructure/rooms/repositories/memory"
+	transport "github.com/gitgernit/videochat-rooms/internal/transport/grpc"
+	"github.com/gitgernit/videochat-rooms/pkg/logger"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/test/bufconn"

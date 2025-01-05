@@ -1,8 +1,8 @@
 package rooms
 
 import (
+	"github.com/gitgernit/videochat-rooms/pkg/logger"
 	"github.com/google/uuid"
-	"gitlab.crja72.ru/gospec/go5/rooms/pkg/logger"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"time"

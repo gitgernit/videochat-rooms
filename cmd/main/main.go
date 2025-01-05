@@ -6,9 +6,9 @@ import (
 	"os/signal"
 	"syscall"
 
-	"gitlab.crja72.ru/gospec/go5/rooms/internal/config"
-	transport "gitlab.crja72.ru/gospec/go5/rooms/internal/transport/grpc"
-	"gitlab.crja72.ru/gospec/go5/rooms/pkg/logger"
+	"github.com/gitgernit/videochat-rooms/internal/config"
+	transport "github.com/gitgernit/videochat-rooms/internal/transport/grpc"
+	"github.com/gitgernit/videochat-rooms/pkg/logger"
 	"go.uber.org/zap"
 )
 

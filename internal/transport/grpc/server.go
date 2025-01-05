@@ -7,13 +7,13 @@ import (
 	"net/http"
 	"sync"
 
+	"github.com/gitgernit/videochat-rooms/internal/infrastructure/rooms/repositories/memory"
+	"github.com/gitgernit/videochat-rooms/pkg/logger"
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"github.com/rs/cors"
 	"github.com/tmc/grpc-websocket-proxy/wsproxy"
-	"gitlab.crja72.ru/gospec/go5/rooms/internal/infrastructure/rooms/repositories/memory"
-	"gitlab.crja72.ru/gospec/go5/rooms/pkg/logger"
 
-	"gitlab.crja72.ru/gospec/go5/contracts/proto/rooms/go/proto"
+	"github.com/gitgernit/videochat-contracts/proto/rooms/go/proto"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
