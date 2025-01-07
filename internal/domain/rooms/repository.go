@@ -1,9 +1,9 @@
 package rooms
 
 type Repository interface {
-	CreateRoom(id string) error
-	JoinRoom(id string, user User) error
-	LeaveRoom(id string, user User) error
-	GetRoomUsers(id string) ([]User, error)
+	CreateRoom(name string) error
+	JoinRoom(name string, user User) error
+	LeaveRoom(name string, user User) error
+	GetRoomUsers(name string) ([]User, error)
 	GetRooms() ([]Room, error)
 }

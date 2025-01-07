@@ -17,21 +17,21 @@ func NewRepository() *Repository {
 	}
 }
 
-func (r *Repository) CreateRoom(id string) error {
-	room := rooms.Room{ID: id, Users: make([]rooms.User, 0)}
-	r.rooms[room.ID] = room
+func (r *Repository) CreateRoom(name string) error {
+	room := rooms.Room{Name: name, Users: make([]rooms.User, 0)}
+	r.rooms[room.Name] = room
 
 	return nil
 }
 
-func (r *Repository) JoinRoom(id string, user rooms.User) error {
-	room, ok := r.rooms[id]
+func (r *Repository) JoinRoom(name string, user rooms.User) error {
+	room, ok := r.rooms[name]
 	if !ok {
-		return fmt.Errorf("no such room with given id")
+		return fmt.Errorf("no such room with given name")
 	}
 
 	room.Users = append(room.Users, user)
-	r.rooms[id] = room
+	r.rooms[name] = room
 
 	return nil
 }

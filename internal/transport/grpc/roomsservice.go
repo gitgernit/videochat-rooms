@@ -21,7 +21,7 @@ import (
 
 const (
 	usernameMetadata   = "username"
-	roomIDMetadata     = "room_id"
+	roomNameMetadata   = "room_name"
 	dispatcherUsername = "dispatcher"
 )
 
@@ -29,8 +29,8 @@ func RoomsHeaderMatcher(key string) (string, bool) {
 	switch key {
 	case "Username":
 		return usernameMetadata, true
-	case "Room-Id":
-		return roomIDMetadata, true
+	case "Room-Name":
+		return roomNameMetadata, true
 	default:
 		return key, false
 	}
@@ -100,10 +100,10 @@ func (s *RoomsService) ListenForRooms(in *proto.ListenForRoomsRequest, stream pr
 
 	for {
 		select {
-		case roomID := <-s.incomingRoomsChannel:
-			notification := &proto.NewRoomNotification{Id: roomID}
+		case roomName := <-s.incomingRoomsChannel:
+			notification := &proto.NewRoomNotification{Name: roomName}
 			if err := stream.Send(notification); err != nil {
-				s.logger.Error(ctx, "could not send room notification", zap.String("room_id", roomID), zap.Error(err))
+				s.logger.Error(ctx, "could not send room notification", zap.String("room_id", roomName), zap.Error(err))
 				return status.Error(codes.Internal, err.Error())
 			}
 
@@ -116,12 +116,12 @@ func (s *RoomsService) ListenForRooms(in *proto.ListenForRoomsRequest, stream pr
 func (s *RoomsService) CreateRoom(ctx context.Context, req *proto.CreateRoomRequest) (*proto.CreateRoomResponse, error) {
 	interactor := rooms.NewInteractor(s.logger, s.repository, s.incomingRoomsChannel)
 
-	id, err := interactor.CreateRoom()
+	err := interactor.CreateRoom(req.Name)
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 
-	return &proto.CreateRoomResponse{Id: id}, nil
+	return &proto.CreateRoomResponse{Name: req.Name}, nil
 }
 
 func (s *RoomsService) JoinRoom(stream proto.RoomsService_JoinRoomServer) error {
@@ -143,13 +143,13 @@ func (s *RoomsService) JoinRoom(stream proto.RoomsService_JoinRoomServer) error 
 	s.Users[user] = stream
 	defer delete(s.Users, user)
 
-	roomIDs, ok := md["room_id"]
+	roomNames, ok := md["room_name"]
 	if !ok {
-		return status.Error(codes.InvalidArgument, "couldnt extract room id from request")
+		return status.Error(codes.InvalidArgument, "couldnt extract room name from request")
 	}
-	roomID := roomIDs[0]
+	roomName := roomNames[0]
 
-	roomUsers, err := interactor.GetRoomUsers(roomID)
+	roomUsers, err := interactor.GetRoomUsers(roomName)
 	if err != nil {
 		return status.Error(codes.Internal, "couldnt fetch room users")
 	}
@@ -168,19 +168,19 @@ func (s *RoomsService) JoinRoom(stream proto.RoomsService_JoinRoomServer) error 
 
 	allRoomsIDs := make([]string, len(allRooms))
 	for _, v := range allRooms {
-		allRoomsIDs = append(allRoomsIDs, v.ID)
+		allRoomsIDs = append(allRoomsIDs, v.Name)
 	}
 
-	if !slices.Contains(allRoomsIDs, roomID) {
+	if !slices.Contains(allRoomsIDs, roomName) {
 		return status.Error(codes.InvalidArgument, "no such room with given id")
 	}
 
-	if err := interactor.JoinRoom(roomID, user); err != nil {
-		s.logger.Error(ctx, "couldnt join room", zap.String("room_id", roomID), zap.String("username", username))
+	if err := interactor.JoinRoom(roomName, user); err != nil {
+		s.logger.Error(ctx, "couldnt join room", zap.String("room_id", roomName), zap.String("username", username))
 		return status.Error(codes.Internal, err.Error())
 	}
 
-	err = s.sendRoomUsers(ctx, interactor, roomID)
+	err = s.sendRoomUsers(ctx, interactor, roomName)
 	if err != nil {
 		return status.Error(codes.Internal, err.Error())
 	}
@@ -189,13 +189,13 @@ func (s *RoomsService) JoinRoom(stream proto.RoomsService_JoinRoomServer) error 
 		if err != nil {
 			s.logger.Error(ctx, "couldnt send room users upon user leaving room")
 		}
-	}(s, ctx, interactor, roomID)
+	}(s, ctx, interactor, roomName)
 	defer func(interactor rooms.Interactor, id string, user rooms.User) {
 		err := interactor.LeaveRoom(id, user)
 		if err != nil {
-			s.logger.Error(ctx, err.Error(), zap.String("room_id", roomID), zap.String("username", user.Name))
+			s.logger.Error(ctx, err.Error(), zap.String("room_id", roomName), zap.String("username", user.Name))
 		}
-	}(interactor, roomID, user)
+	}(interactor, roomName, user)
 
 	for {
 		msg, err := stream.Recv()
@@ -215,7 +215,7 @@ func (s *RoomsService) JoinRoom(stream proto.RoomsService_JoinRoomServer) error 
 			message := m.SendMessage
 			text := message.Text
 
-			roomUsers, err := interactor.GetRoomUsers(roomID)
+			roomUsers, err := interactor.GetRoomUsers(roomName)
 			if err != nil {
 				s.logger.Error(ctx, "couldnt fetch room users")
 				return status.Error(codes.Internal, err.Error())
@@ -248,7 +248,7 @@ func (s *RoomsService) JoinRoom(stream proto.RoomsService_JoinRoomServer) error 
 			message := m.SendSdp
 			sdps := message.Sdp
 
-			roomUsers, err := interactor.GetRoomUsers(roomID)
+			roomUsers, err := interactor.GetRoomUsers(roomName)
 			if err != nil {
 				s.logger.Error(ctx, "couldnt fetch room users")
 				return status.Error(codes.Internal, err.Error())

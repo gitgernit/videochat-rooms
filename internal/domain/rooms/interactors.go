@@ -2,7 +2,6 @@ package rooms
 
 import (
 	"github.com/gitgernit/videochat-rooms/pkg/logger"
-	"github.com/google/uuid"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"time"
@@ -22,34 +21,32 @@ func NewInteractor(logger logger.Logger, repository Repository, newRoomsChannel 
 	}
 }
 
-func (i Interactor) CreateRoom() (string, error) {
-	id := uuid.New()
-
-	err := i.repository.CreateRoom(id.String())
+func (i Interactor) CreateRoom(name string) error {
+	err := i.repository.CreateRoom(name)
 	if err != nil {
-		return "", err
+		return err
 	}
 
 	select {
-	case i.newRoomsChannel <- id.String():
-		return id.String(), nil
+	case i.newRoomsChannel <- name:
+		return nil
 	case <-time.After(5 * time.Second):
-		return "", status.Error(codes.Unavailable, "couldnt send the room to a coordinator")
+		return status.Error(codes.Unavailable, "couldnt send the room to a coordinator")
 	}
 }
 
-func (i Interactor) JoinRoom(id string, user User) error {
-	err := i.repository.JoinRoom(id, user)
+func (i Interactor) JoinRoom(name string, user User) error {
+	err := i.repository.JoinRoom(name, user)
 	return err
 }
 
-func (i Interactor) LeaveRoom(id string, user User) error {
-	err := i.repository.LeaveRoom(id, user)
+func (i Interactor) LeaveRoom(name string, user User) error {
+	err := i.repository.LeaveRoom(name, user)
 	return err
 }
 
-func (i Interactor) GetRoomUsers(id string) ([]User, error) {
-	users, err := i.repository.GetRoomUsers(id)
+func (i Interactor) GetRoomUsers(name string) ([]User, error) {
+	users, err := i.repository.GetRoomUsers(name)
 	return users, err
 }
 

@@ -8,6 +8,6 @@ type User struct {
 }
 
 type Room struct {
-	ID    string
+	Name  string
 	Users []User
 }
